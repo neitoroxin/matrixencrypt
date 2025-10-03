@@ -1,23 +1,41 @@
----ABOUT PROJECT---
-This directory contains two executable files that perform encryption and decryption.
+# MatrixEncrypt
 
-Description of files:
-input.txt - source message, string
-output.txt - encrypted message
-source.txt - decrypted message
-encoder(/.exe) - code cipher text from the input file from input.txt to output.txt
-decoder(/.exe) - program for decrypting messages from output.txt to source.txt
-
-key.txt - private key for synchronous encryption, any vector
-hint: save space
+MatrixEncrypt is a C++ project that demonstrates **synchronous encryption using linear algebra**.  
+The algorithm is based on solving matrix equations of the form:
 
 
-About algrotihm:
-The algorithm boils down to solving systems of linear algebraic equations. The key idea is that after solving a system, we cannot use its roots to determine the original coefficient matrix.
-The presented implementation encrypts strings, but it can be generalized to any data arrays.
+where:
+- `A` is the encryption key (matrix),
+- `x` is the plaintext vector (input message),
+- `B` is the ciphertext vector (output message).
 
-More info (math and linear algebra):
-let A - source message, B - private key. then solve equation Ax = B.
-if we know roots, we cant restore source message from formula, because the matrices have different dimensions.
-let M = B * x^T * (x^T * x)^{-1}. Then we can give as encrypted message A - M.
-As for the algorithm's cryptographic strength, everything is excellent. The encryption method is synchronous and predicting a vector from a matrix A - M.
+The project provides two programs:  
+- `encoder` — encrypts a message using a key matrix  
+- `decoder` — decrypts a ciphertext back into the original message  
+
+---
+
+## ✨ Features
+
+- Encrypts text data using matrix operations  
+- Decrypts ciphertext back to original plaintext  
+- Works with text files as input/output  
+- Simple implementation in C++ for educational purposes  
+
+---
+
+## 📦 Getting Started
+
+### 1. Clone the repository
+```bash
+git clone https://github.com/neitoroxin/matrixencrypt.git
+cd matrixencrypt
+```
+
+## How use
+
+### All programs must be located in one directory.
+
+- Make sure all programs are in the same folder.
+- When you write you message in 'input.txt', run 'encoder'. Encrypted message will appear in 'output.txt'
+- For decrypt encrypted message use 'decoder', when encrypted message will be in 'output.txt'. The decrypted message will appear in 'source.txt'
