@@ -44,8 +44,9 @@ The presented implementation encrypts strings, but it can be generalized to any 
 ---
 
 ## More info (math and linear algebra):
-let A - source message, B - private key. then solve equation Ax = B.
+let $A$ - source message, $B$ - private key. then solve equation $Ax = B$.
 if we know roots, we cant restore source message from formula, because the matrices have different dimensions.
-let M = B * x^T * (x^T * x)^{-1}. Then we can give as encrypted message A - M.
+let $M = B * x^T * (x^T * x)^{-1}$. Then we can give as encrypted message $A - M$.
 
 As for the algorithm's cryptographic strength, everything is excellent. The encryption method is synchronous and predicting a vector from a matrix A - M.
+
