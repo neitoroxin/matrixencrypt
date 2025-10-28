@@ -32,7 +32,6 @@ matrix<T>::matrix(long long n, long long m) {
     data = std::vector<std::vector<T>>(n, std::vector<T>(m, 0));
 }
 
-// Операторы матриц остаются без изменений...
 template <typename T>
 matrix<T> operator * (const matrix<T>& left, const matrix<T>& right) {
     matrix<T> mid(left.rows(), right.cols());
