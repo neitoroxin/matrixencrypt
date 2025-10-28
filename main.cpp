@@ -7,18 +7,24 @@
 #include <ctime>
 #include <random>
 #include <climits>
+#include <filesystem>
+#include <cstring>
 
 template <typename T>
 struct matrix {
     std::vector<std::vector<T>> data;
 
     matrix(long long n, long long m);
-    long long rows() const {
-		return data.size();
-	}
-    long long cols() const {
-		return data[0].size();
-	}
+    long long rows() const { return data.size(); }
+    long long cols() const { return data[0].size(); }
+    
+    matrix(const matrix<T>& other) : data(other.data) {}
+    matrix<T>& operator=(const matrix<T>& other) {
+        if (this != &other) {
+            data = other.data;
+        }
+        return *this;
+    }
 };
 
 template <typename T>
@@ -26,6 +32,7 @@ matrix<T>::matrix(long long n, long long m) {
     data = std::vector<std::vector<T>>(n, std::vector<T>(m, 0));
 }
 
+// Операторы матриц остаются без изменений...
 template <typename T>
 matrix<T> operator * (const matrix<T>& left, const matrix<T>& right) {
     matrix<T> mid(left.rows(), right.cols());
@@ -73,7 +80,7 @@ matrix<T> operator * (const T left, const matrix<T>& right) {
 }
 
 template <typename T>
-matrix<double> pow(const matrix<T>& A, const T pow) {
+matrix<double> matrix_inverse(const matrix<T>& A) {
     const long long n = A.cols();
     matrix<double> A0(n, n);
     for (int i = 0; i < n; i++) {
@@ -82,9 +89,7 @@ matrix<double> pow(const matrix<T>& A, const T pow) {
         }
     }
 
-    if (pow != -1) return A0;
     matrix<double> result(n, n);
-
     for (int i = 0; i < n; i++) {
         result.data[i][i] = 1;
     }
@@ -92,9 +97,13 @@ matrix<double> pow(const matrix<T>& A, const T pow) {
     for (long long i = 0; i < n; i++) {
         long long best = i;
         for (long long j = i + 1; j < n; j++) {
-            if (abs(A0.data[j][i]) > abs(A.data[best][i])) {
+            if (std::abs(A0.data[j][i]) > std::abs(A0.data[best][i])) {
                 best = j;
             }
+        }
+
+        if (A0.data[best][i] == 0) {
+            throw std::runtime_error("Matrix is singular, cannot invert");
         }
 
         std::swap(A0.data[i], A0.data[best]);
@@ -145,9 +154,13 @@ matrix<double> gauss(const matrix<T>& A, const matrix<T>& B) {
     for (long long i = 0; i < n; i++) {
         long long best = i;
         for (long long j = i + 1; j < n; j++) {
-            if (abs(A0.data[j][i]) > abs(A0.data[best][i])) {
+            if (std::abs(A0.data[j][i]) > std::abs(A0.data[best][i])) {
                 best = j;
             }
+        }
+
+        if (A0.data[best][i] == 0) {
+            throw std::runtime_error("Matrix is singular in Gaussian elimination");
         }
 
         if (best != i) {
@@ -173,7 +186,7 @@ matrix<double> gauss(const matrix<T>& A, const matrix<T>& B) {
             for (long long col = i + 1; col < n; col++) {
                 sum += A0.data[i][col] * result.data[col][j];
             }
-            result.data[i][j] =  (double(B0.data[i][j]) - double(sum)) / double(A0.data[i][i]);
+            result.data[i][j] = (double(B0.data[i][j]) - double(sum)) / double(A0.data[i][i]);
         }
     }
 
@@ -181,7 +194,7 @@ matrix<double> gauss(const matrix<T>& A, const matrix<T>& B) {
 }
 
 template <typename T>
-std::ostream & operator << (std::ostream & out, const matrix<T>& a) { // Вывод матрицы
+std::ostream & operator << (std::ostream & out, const matrix<T>& a) {
     for (long long i = 0; i < a.rows(); i++) {
         for (long long j = 0; j < a.cols(); j++) {
             out << a.data[i][j] << ' ';
@@ -199,116 +212,182 @@ matrix<double> fromTtoDouble(const matrix<T>& A) {
             A0.data[i][j] = double(A.data[i][j]);
         }
     }
-
     return A0;
 }
 
-
-std::string s;
-long long n, matn;
-std::mt19937 mt(time(nullptr));
-std::uniform_int_distribution<char> dist(CHAR_MIN, CHAR_MAX);
-
 class Solution {
+private:
+    std::mt19937 mt;
+    
 public:
-    Solution() {}
-
+    Solution() : mt(std::random_device{}()) {}
+    
     template <typename T>
     matrix<T> maybeA(const matrix<T>& B, const matrix<T>& x) {
         const matrix<T> xt = transp(x);
         matrix<double> scalar1 = xt * x;
-        const double scalar = 1 / scalar1.data[0][0];
-
+        
+        if (scalar1.data[0][0] == 0) {
+            throw std::runtime_error("Division by zero in maybeA calculation");
+        }
+        
+        const double scalar = 1.0 / scalar1.data[0][0];
         return scalar * (B * xt);
     }
 
-    void encoder() { // Encoder with string
-        std::ifstream fin("input.txt"); // File with source message
-        std::ofstream fout("output.txt"); // File with encrypted message
-        getline(fin, s);
-        n = s.size();
-        matn = ceil(sqrt(n));
+    void encrypt(const std::string& input_file, const std::string& key_file, const std::string& output_file) {
+        std::ifstream fin(input_file);
+        std::ofstream fout(output_file);
+        
+        if (!fin.is_open()) {
+            throw std::runtime_error("Cannot open input file: " + input_file);
+        }
+        if (!fout.is_open()) {
+            throw std::runtime_error("Cannot open output file: " + output_file);
+        }
+
+        std::string s;
+        std::getline(fin, s);
+        long long n = s.size();
+        long long matn = std::ceil(std::sqrt(n));
+
+        std::uniform_int_distribution<char> dist(CHAR_MIN, CHAR_MAX);
 
         matrix<long long> A(matn, matn), B(matn, 1);
+        
+        // Filling matrix A
         for (int i = 0; i < n; i++) {
             A.data[i / matn][i % matn] = s[i] + 1;
         }
 
+        // Filling random numbers
         for (int i = n; i < matn * matn; i++) {
             A.data[i / matn][i % matn] = dist(mt);
         }
 
-        std::cerr << A << std::endl;
-
-        std::ifstream is("key.txt"); // Reading key
-        for (int i = 0; i < matn; i++) {
-            is >> B.data[i][0];
+        // Reading key
+        std::ifstream key_stream(key_file);
+        if (!key_stream.is_open()) {
+            throw std::runtime_error("Cannot open key file: " + key_file);
         }
-        is.close();
+        
+        for (int i = 0; i < matn; i++) {
+            if (!(key_stream >> B.data[i][0])) {
+                throw std::runtime_error("Invalid key file format");
+            }
+        }
+        key_stream.close();
 
-        const matrix<double> x{gauss(A, B)};
-        fout << n << std::endl << transp(x) << std::endl << maybeA(fromTtoDouble(B), x) - fromTtoDouble(A) << std::endl;
+        // Encrypting
+        const matrix<double> x = gauss(A, B);
+        matrix<double> P = maybeA(fromTtoDouble(B), x) - fromTtoDouble(A);
+        
+        // Writing results
+        fout << n << std::endl << transp(x) << std::endl << P << std::endl;
+        
         fin.close();
         fout.close();
     }
 
-    void decoder() {
-        std::ifstream fin("output.txt"); // File with encrypted message
-        std::ofstream fout("source.txt"); // File with decrypted message
+    void decrypt(const std::string& encrypted_file, const std::string& key_file, const std::string& output_file) {
+        std::ifstream fin(encrypted_file);
+        std::ofstream fout(output_file);
+        
+        if (!fin.is_open()) {
+            throw std::runtime_error("Cannot open encrypted file: " + encrypted_file);
+        }
+        if (!fout.is_open()) {
+            throw std::runtime_error("Cannot open output file: " + output_file);
+        }
+
+        long long n;
         fin >> n;
-        matn = ceil(sqrt(n));
+        long long matn = std::ceil(std::sqrt(n));
 
         matrix<double> x(matn, 1);
         for (int i = 0; i < matn; i++) {
             fin >> x.data[i][0];
         }
-        matrix<double> xt = transp(x);
+
+        // Reading key
         matrix<long long> B(matn, 1);
-
-        std::ifstream is("key.txt"); // Reading key
-        for (int i = 0; i < matn; i++) {
-            is >> B.data[i][0];
+        std::ifstream key_stream(key_file);
+        if (!key_stream.is_open()) {
+            throw std::runtime_error("Cannot open key file: " + key_file);
         }
-        is.close();
+        
+        for (int i = 0; i < matn; i++) {
+            if (!(key_stream >> B.data[i][0])) {
+                throw std::runtime_error("Invalid key file format");
+            }
+        }
+        key_stream.close();
 
-        const matrix<double> maybe{maybeA(fromTtoDouble(B), x)};
+        const matrix<double> maybe = maybeA(fromTtoDouble(B), x);
+        
+        // Reading and encrypting
         for (int i = 0; i < matn; i++) {
             for (int j = 0; j < matn; j++) {
                 double reserv;
-                fin >> reserv;
+                if (!(fin >> reserv)) {
+                    throw std::runtime_error("Invalid encrypted file format");
+                }
                 if (i * matn + j < n) {
-                    fout << char(round(maybe.data[i][j] - reserv - 1));
-                } else {
-                    fin.close();
-                    fout.close();
-                    return;
+                    char decrypted_char = static_cast<char>(std::round(maybe.data[i][j] - reserv - 1));
+                    fout << decrypted_char;
                 }
             }
         }
+        
         fin.close();
         fout.close();
     }
 };
 
-#include <chrono>
-int main() {
-    std::ios::sync_with_stdio(0);
-    std::cin.tie(0);
-    std::cout.tie(0);
+void print_usage() {
+    std::cout << "Usage:\n"
+              << "  matrixencrypt -encrypt <key_file> -o <output_file> <input_file>\n"
+              << "  matrixencrypt -decrypt <key_file> -o <output_file> <encrypted_file>\n"
+              << "Examples:\n"
+              << "  matrixencrypt -encrypt key.txt -o encrypted.txt message.txt\n"
+              << "  matrixencrypt -decrypt key.txt -o decrypted.txt encrypted.txt\n";
+}
 
-    auto start = std::chrono::high_resolution_clock::now();
-    Solution s = Solution();
-
-    std::cout << std::endl;
-
-    int flag = 0;
-    if (flag == 1) {
-        s.encoder();
-    } else if (flag == 0) {
-        s.decoder();
+int main(int argc, char* argv[]) {
+    if (argc < 6) {
+        print_usage();
+        return 1;
     }
 
-    auto end = std::chrono::high_resolution_clock::now();
-    std::cerr << "\n\n" << std::chrono::duration<double, std::milli>(end - start).count() << " ms\n";
+    try {
+        Solution crypto;
+        std::string mode = argv[1];
+        std::string key_file = argv[2];
+        std::string output_flag = argv[3];
+        std::string output_file = argv[4];
+        std::string input_file = argv[5];
+
+        if (output_flag != "-o") {
+            std::cerr << "expected '-o' flag before output file\n";
+            print_usage();
+            return 1;
+        }
+
+        if (mode == "-encrypt") {
+            crypto.encrypt(input_file, key_file, output_file);
+            std::cout << "File encrypted successfully: " << output_file << std::endl;
+        } else if (mode == "-decrypt") {
+            crypto.decrypt(input_file, key_file, output_file);
+            std::cout << "File decrypted successfully: " << output_file << std::endl;
+        } else {
+            std::cerr << "unknown mode " << mode << "'\n";
+            print_usage();
+            return 1;
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "error: " << e.what() << std::endl;
+        return 1;
+    }
+
     return 0;
 }
