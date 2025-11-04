@@ -61,7 +61,7 @@ public:
     friend std::istream& operator>>(std::istream& is, modular& m) {
         int temp;
         is >> temp;
-        m.value = m.mod(temp);  // Применяем модуль к введенному значению
+        m.value = m.mod(temp);
         return is;
     }
 };
