@@ -10,6 +10,62 @@
 #include <filesystem>
 #include <cstring>
 
+class modular {
+private:
+    int value;
+    static const int MOD = 257;
+
+    int mod(int x) const {
+        x %= MOD;
+        return x < 0 ? x + MOD : x;
+    }
+
+public:
+    modular(int x = 0) : value(mod(x)) {}
+
+    operator int() const { return value; }
+
+    modular operator+(int x) const { return modular(value + x); }
+    modular operator-(int x) const { return modular(value - x); }
+    modular operator*(int x) const { return modular((long long)value * x % MOD); }
+
+    modular operator+(const modular& other) const { return *this + other.value; }
+    modular operator-(const modular& other) const { return *this - other.value; }
+    modular operator*(const modular& other) const { return *this * other.value; }
+
+    modular& operator+=(int x) { value = mod(value + x); return *this; }
+    modular& operator-=(int x) { value = mod(value - x); return *this; }
+    modular& operator*=(int x) { value = mod((long long)value * x % MOD); return *this; }
+
+    friend modular binpow(modular a, int k) {
+        modular ans = 1;
+        while (k) {
+            if (k & 1) {
+                ans *= a;
+            }
+            a *= a;
+            k >>= 1;
+        }
+        return ans;
+    }
+
+    modular operator/(int x) const { return modular(value * binpow(modular(x), MOD - 2)); }
+    modular operator/(const modular& other) const { return *this / other.value; }
+    modular& operator/=(int x) { value = mod(modular(value * binpow(modular(x), MOD - 2))); return *this; }
+
+
+    friend std::ostream& operator<<(std::ostream& os, const modular& m) {
+        return os << m.value;
+    }
+
+    friend std::istream& operator>>(std::istream& is, modular& m) {
+        int temp;
+        is >> temp;
+        m.value = m.mod(temp);  // Применяем модуль к введенному значению
+        return is;
+    }
+};
+
 template <typename T>
 struct matrix {
     std::vector<std::vector<T>> data;
@@ -79,16 +135,16 @@ matrix<T> operator * (const T left, const matrix<T>& right) {
 }
 
 template <typename T>
-matrix<double> matrix_inverse(const matrix<T>& A) {
+matrix<T> matrix_inverse(const matrix<T>& A) {
     const long long n = A.cols();
-    matrix<double> A0(n, n);
+    matrix<T> A0(n, n);
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < n; j++) {
-            A0.data[i][j] = double(A.data[i][j]);
+            A0.data[i][j] = modular(A.data[i][j]);
         }
     }
 
-    matrix<double> result(n, n);
+    matrix<T> result(n, n);
     for (int i = 0; i < n; i++) {
         result.data[i][i] = 1;
     }
@@ -108,7 +164,7 @@ matrix<double> matrix_inverse(const matrix<T>& A) {
         std::swap(A0.data[i], A0.data[best]);
         std::swap(result.data[i], result.data[best]);
 
-        double div = A0.data[i][i];
+        T div = A0.data[i][i];
         for (long long j = 0; j < n; j++) {
             A0.data[i][j] /= div;
             result.data[i][j] /= div;
@@ -116,7 +172,7 @@ matrix<double> matrix_inverse(const matrix<T>& A) {
 
         for (long long j = 0; j < n; j++) {
             if (j != i) {
-                double fact = A0.data[j][i];
+                T fact = A0.data[j][i];
                 for (long long k = 0; k < n; k++) {
                     A0.data[j][k] -= fact * A0.data[i][k];
                     result.data[j][k] -= fact * result.data[i][k];
@@ -144,7 +200,7 @@ matrix<T> transp(const matrix<T>& A) {
 }
 
 template <typename T>
-matrix<double> gauss(const matrix<T>& A, const matrix<T>& B) {
+matrix<T> gauss(const matrix<T>& A, const matrix<T>& B) {
     long long n = A.rows();
     long long m = B.cols();
     matrix<T> A0 = A;
@@ -178,18 +234,28 @@ matrix<double> gauss(const matrix<T>& A, const matrix<T>& B) {
         }
     }
 
-    matrix<double> result(n, m);
+    matrix<T> result(n, m);
     for (long long i = n - 1; i >= 0; i--) {
         for (long long j = 0; j < m; j++) {
             T sum = 0;
             for (long long col = i + 1; col < n; col++) {
                 sum += A0.data[i][col] * result.data[col][j];
             }
-            result.data[i][j] = (double(B0.data[i][j]) - double(sum)) / double(A0.data[i][i]);
+            result.data[i][j] = (T(B0.data[i][j]) - T(sum)) / T(A0.data[i][i]);
         }
     }
 
     return result;
+}
+
+template <typename T>
+std::istream & operator >> (std::istream &in, matrix<T>& a) {
+    for (long long i = 0; i < a.rows(); i++) {
+        for (long long j = 0; j < a.cols(); j++) {
+            in >> a.data[i][j];
+        }
+    }
+    return in;
 }
 
 template <typename T>
@@ -198,17 +264,17 @@ std::ostream & operator << (std::ostream & out, const matrix<T>& a) {
         for (long long j = 0; j < a.cols(); j++) {
             out << a.data[i][j] << ' ';
         }
-        out << '\n';
+        out << std::endl;
     }
     return out;
 }
 
 template <typename T>
-matrix<double> fromTtoDouble(const matrix<T>& A) {
-    matrix<double> A0(A.rows(), A.cols());
+matrix<T> fromTtoModular(const matrix<T>& A) {
+    matrix<T> A0(A.rows(), A.cols());
     for (int i = 0; i < A0.rows(); i++) {
         for (int j = 0; j < A0.cols(); j++) {
-            A0.data[i][j] = double(A.data[i][j]);
+            A0.data[i][j] = T(A.data[i][j]);
         }
     }
     return A0;
@@ -221,16 +287,15 @@ private:
 public:
     Solution() : mt(std::random_device{}()) {}
     
-    template <typename T>
-    matrix<T> maybeA(const matrix<T>& B, const matrix<T>& x) {
-        const matrix<T> xt = transp(x);
-        matrix<double> scalar1 = xt * x;
+    matrix<modular> maybeA(const matrix<modular>& B, const matrix<modular>& x) {
+        const matrix<modular> xt = transp(x);
+        matrix<modular> scalar1 = xt * x;
         
         if (scalar1.data[0][0] == 0) {
             throw std::runtime_error("Division by zero in maybeA calculation");
         }
         
-        const double scalar = 1.0 / scalar1.data[0][0];
+        const modular scalar = 1 / scalar1.data[0][0];
         return scalar * (B * xt);
     }
 
@@ -252,7 +317,7 @@ public:
 
         std::uniform_int_distribution<char> dist(CHAR_MIN, CHAR_MAX);
 
-        matrix<long long> A(matn, matn), B(matn, 1);
+        matrix<modular> A(matn, matn), B(matn, 1);
         
         // Filling matrix A
         for (int i = 0; i < n; i++) {
@@ -278,8 +343,8 @@ public:
         key_stream.close();
 
         // Encrypting
-        const matrix<double> x = gauss(A, B);
-        matrix<double> P = maybeA(fromTtoDouble(B), x) - fromTtoDouble(A);
+        const matrix<modular> x = gauss(A, B);
+        matrix<modular> P = maybeA(B, x) - A;
         
         // Writing results
         fout << n << std::endl << transp(x) << std::endl << P << std::endl;
@@ -303,13 +368,13 @@ public:
         fin >> n;
         long long matn = std::ceil(std::sqrt(n));
 
-        matrix<double> x(matn, 1);
+        matrix<modular> x(matn, 1);
         for (int i = 0; i < matn; i++) {
             fin >> x.data[i][0];
         }
 
         // Reading key
-        matrix<long long> B(matn, 1);
+        matrix<modular> B(matn, 1);
         std::ifstream key_stream(key_file);
         if (!key_stream.is_open()) {
             throw std::runtime_error("Cannot open key file: " + key_file);
@@ -322,17 +387,17 @@ public:
         }
         key_stream.close();
 
-        const matrix<double> maybe = maybeA(fromTtoDouble(B), x);
+        const matrix<modular> maybe = maybeA(B, x);
         
         // Reading and encrypting
         for (int i = 0; i < matn; i++) {
             for (int j = 0; j < matn; j++) {
-                double reserv;
+                modular reserv;
                 if (!(fin >> reserv)) {
                     throw std::runtime_error("Invalid encrypted file format");
                 }
                 if (i * matn + j < n) {
-                    char decrypted_char = static_cast<char>(std::round(maybe.data[i][j] - reserv - 1));
+                    char decrypted_char = static_cast<char>(maybe.data[i][j] - reserv - 1);
                     fout << decrypted_char;
                 }
             }
@@ -353,6 +418,7 @@ void print_usage() {
 }
 
 int main(int argc, char* argv[]) {
+
     if (argc < 6) {
         print_usage();
         return 1;
@@ -387,6 +453,5 @@ int main(int argc, char* argv[]) {
         std::cerr << "error: " << e.what() << std::endl;
         return 1;
     }
-
     return 0;
 }
