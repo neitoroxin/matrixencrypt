@@ -10,6 +10,62 @@
 #include <filesystem>
 #include <cstring>
 
+class modular {
+private:
+    int value;
+    static const int MOD = 257;
+
+    int mod(int x) const {
+        x %= MOD;
+        return x < 0 ? x + MOD : x;
+    }
+
+public:
+    modular(int x = 0) : value(mod(x)) {}
+
+    operator int() const { return value; }
+
+    modular operator+(int x) const { return modular(value + x); }
+    modular operator-(int x) const { return modular(value - x); }
+    modular operator*(int x) const { return modular((long long)value * x % MOD); }
+
+    modular operator+(const modular& other) const { return *this + other.value; }
+    modular operator-(const modular& other) const { return *this - other.value; }
+    modular operator*(const modular& other) const { return *this * other.value; }
+
+    modular& operator+=(int x) { value = mod(value + x); return *this; }
+    modular& operator-=(int x) { value = mod(value - x); return *this; }
+    modular& operator*=(int x) { value = mod((long long)value * x % MOD); return *this; }
+
+    friend modular binpow(modular a, int k) {
+        modular ans = 1;
+        while (k) {
+            if (k & 1) {
+                ans *= a;
+            }
+            a *= a;
+            k >>= 1;
+        }
+        return ans;
+    }
+
+    modular operator/(int x) const { return modular(value * binpow(modular(x), MOD - 2)); }
+    modular operator/(const modular& other) const { return *this / other.value; }
+    modular& operator/=(int x) { value = mod(modular(value * binpow(modular(x), MOD - 2))); return *this; }
+
+
+    friend std::ostream& operator<<(std::ostream& os, const modular& m) {
+        return os << m.value;
+    }
+
+    friend std::istream& operator>>(std::istream& is, modular& m) {
+        int temp;
+        is >> temp;
+        m.value = m.mod(temp);
+        return is;
+    }
+};
+
 template <typename T>
 struct matrix {
     std::vector<std::vector<T>> data;
