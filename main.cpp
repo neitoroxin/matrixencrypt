@@ -279,10 +279,32 @@ matrix<T> fromTtoModular(const matrix<T>& A) {
     }
     return A0;
 }
-
 class Solution {
 private:
     std::mt19937 mt;
+    
+    // hash function
+    int position_hash(const std::string& message, int position, int seed) {
+        std::size_t hash = std::hash<std::string>{}(message);
+        hash ^= std::hash<int>{}(position) << 1;
+        hash ^= std::hash<int>{}(seed) << 2;
+        return (hash % 256) + 1;
+    }
+    
+    // generation noise
+    modular generate_message_dependent_noise(const std::string& message, 
+                                           const matrix<modular>& key, 
+                                           int i, int j, int total_pos) {
+        int pos = i * key.rows() + j;
+        
+        // Using hash of  message + pos + element of key 
+        int seed = 0;
+        if (key.rows() > 0 && key.cols() > 0) {
+            seed = (int)key.data[pos % key.rows()][0];
+        }
+        
+        return modular(position_hash(message, pos + total_pos, seed));
+    }
     
 public:
     Solution() : mt(std::random_device{}()) {}
@@ -315,21 +337,9 @@ public:
         long long n = s.size();
         long long matn = std::ceil(std::sqrt(n));
 
-        std::uniform_int_distribution<char> dist(CHAR_MIN, CHAR_MAX);
-
         matrix<modular> A(matn, matn), B(matn, 1);
         
-        // Filling matrix A
-        for (int i = 0; i < n; i++) {
-            A.data[i / matn][i % matn] = s[i] + 1;
-        }
-
-        // Filling random numbers
-        for (int i = n; i < matn * matn; i++) {
-            A.data[i / matn][i % matn] = dist(mt);
-        }
-
-        // Reading key
+        // reading key
         std::ifstream key_stream(key_file);
         if (!key_stream.is_open()) {
             throw std::runtime_error("Cannot open key file: " + key_file);
@@ -342,11 +352,22 @@ public:
         }
         key_stream.close();
 
-        // Encrypting
+        // filling matrix A with message-dependent noise
+        for (int i = 0; i < n; i++) {
+            A.data[i / matn][i % matn] = s[i] + 1;
+        }
+
+        for (int i = n; i < matn * matn; i++) {
+            int row = i / matn;
+            int col = i % matn;
+            A.data[row][col] = generate_message_dependent_noise(s, B, row, col, n);
+        }
+
+        // encrypting
         const matrix<modular> x = gauss(A, B);
         matrix<modular> P = maybeA(B, x) - A;
         
-        // Writing results
+        // write results;
         fout << n << std::endl << transp(x) << std::endl << P << std::endl;
         
         fin.close();
@@ -373,7 +394,6 @@ public:
             fin >> x.data[i][0];
         }
 
-        // Reading key
         matrix<modular> B(matn, 1);
         std::ifstream key_stream(key_file);
         if (!key_stream.is_open()) {
@@ -389,7 +409,6 @@ public:
 
         const matrix<modular> maybe = maybeA(B, x);
         
-        // Reading and encrypting
         for (int i = 0; i < matn; i++) {
             for (int j = 0; j < matn; j++) {
                 modular reserv;
